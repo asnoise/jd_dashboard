@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Jonom Digital</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: #2ed573; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #2ed573; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px;}
+        a { color: #004aad; text-decoration: none; font-weight: bold; display: block; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>Create Account</h2>
+        <input type="email" id="email" placeholder="Email Address *">
+        <input type="password" id="password" placeholder="Password (Min 6 chars) *">
+        <input type="text" id="fullName" placeholder="Legal Full Name *">
+        <input type="text" id="stageName" placeholder="Stage/Artist Name *">
+        <button onclick="register()">Sign Up Now</button>
+        <a href="index.html">Already have an account? Login</a>
+    </div>
+
+    <script>
+        const supabase = window.supabase.createClient('https://axwgpsqmlvbwualrixrg.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4d2dwc3FtbHZid3VhbHJpeHJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc3ODQsImV4cCI6MjA5NDE3Mzc4NH0.bp9zIabDA5DBUiMmSgVpB2qO4mM5P1TMbBIo1YKVcCI');
+
+        async function register() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+            const stageName = document.getElementById('stageName').value;
+
+            if (!email || !password || !fullName || !stageName) return alert("Fill in all fields!");
+            if (password.length < 6) return alert("Password must be 6 characters.");
+
+            alert("Creating account...");
+
+            const { data, error } = await supabase.auth.signUp({ email, password });
+            if (error) return alert("Error: " + error.message);
+
+            if (data.user) {
+                const { error: dbError } = await supabase.from('profiles').insert([
+                    { id: data.user.id, full_name: fullName, stage_name: stageName, role: 'artist' }
+                ]);
+                
+                if (dbError) {
+                    alert("Account created but profile failed to save: " + dbError.message);
+                } else {
+                    alert("Success! Redirecting to login...");
+                    window.location.href = "index.html"; // Go back to login page
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Jonom Digital</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; font-family: sans-serif; }
+        body { background: #f0f2f5; margin: 0; padding: 0; }
+        .navbar { background: #004aad; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-logout { background: #ff4757; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .container { max-width: 1000px; margin: 30px auto; padding: 20px; background: white; border-radius: 10px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-top: 5px; margin-bottom: 15px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full-width { grid-column: span 2; }
+        .btn-blue { background: #004aad; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .song-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .song-card { border: 1px solid #eee; padding: 15px; text-align: center; border-radius: 8px; }
+        .song-card img { width: 100%; height: 200px; object-fit: cover; border-radius: 5px;}
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <h2>Jonom Digital</h2>
+        <div>
+            <span id="welcomeText" style="margin-right: 15px; font-weight: bold;"></span>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- USER DASHBOARD -->
+    <div id="userDashboard" class="container" style="display: none;">
+        <div style="display: flex; justify-content: space-between;">
+            <h2>My Releases</h2>
+            <button class="btn-blue" onclick="showUpload()">+ Upload New</button>
+        </div>
+        <div id="songList" class="song-grid"></div>
+    </div>
+
+    <!-- UPLOAD FORM -->
+    <div id="uploadSection" class="container" style="display: none;">
+        <h2>Upload New Release</h2>
+        <div class="form-grid">
+            <div><label>Release Type</label><select id="rType"><option>Single</option><option>Album</option></select></div>
+            <div><label>Explicit</label><select id="rExp"><option>No</option><option>Yes</option></select></div>
+            <div class="full-width"><label>Title</label><input type="text" id="rTitle"></div>
+            <div><label>Artwork (JPG/PNG)</label><input type="file" id="rArt" accept="image/*"></div>
+            <div><label>Audio (.WAV)</label><input type="file" id="rAudio" accept=".wav"></div>
+        </div>
+        <button class="btn-blue" onclick="submitRelease()">Submit Release</button>
+        <button class="btn-logout" style="background:#888;" onclick="showDashboard()">Cancel</button>
+    </div>
+
+    <!-- ADMIN DASHBOARD -->
+    <div id="adminDashboard" class="container" style="display: none;">
+        <h2 style="color: #ff4757;">Admin Control Panel</h2>
+        <table>
+            <thead><tr><th>Title</th><th>Artist</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="adminSongList"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const supabase = window.supabase.createClient('https://axwgpsqmlvbwualrixrg.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4d2dwc3FtbHZid3VhbHJpeHJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc3ODQsImV4cCI6MjA5NDE3Mzc4NH0.bp9zIabDA5DBUiMmSgVpB2qO4mM5P1TMbBIo1YKVcCI');
+        let currentUser = null;
+
+        window.onload = async function() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return window.location.href = "index.html"; // Not logged in -> kick to login
+
+            currentUser = user;
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            
+            document.getElementById('welcomeText').innerText = profile ? profile.stage_name : "Artist";
+
+            if (profile && profile.role === 'admin') {
+                document.getElementById('adminDashboard').style.display = 'block';
+                loadAdminSongs();
+            } else {
+                document.getElementById('userDashboard').style.display = 'block';
+                loadUserSongs();
+            }
+        };
+
+        function showUpload() {
+            document.getElementById('userDashboard').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'block';
+        }
+        function showDashboard() {
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('userDashboard').style.display = 'block';
+        }
+
+        async function logout() {
+            await supabase.auth.signOut();
+            window.location.href = "index.html";
+        }
+
+        // Basic placeholder logic for Dashboard so it doesn't crash
+        async function loadUserSongs() { document.getElementById('songList').innerHTML = "<p>No songs yet.</p>"; }
+        async function loadAdminSongs() { document.getElementById('adminSongList').innerHTML = "<tr><td colspan='4'>No songs pending.</td></tr>"; }
+        async function submitRelease() { alert("Upload functional placeholder. Add storage logic here!"); showDashboard(); }
+    </script>
+</body>
+</html>
