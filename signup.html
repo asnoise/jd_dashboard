@@ -30,29 +30,39 @@
         const supabase = window.supabase.createClient('https://axwgpsqmlvbwualrixrg.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4d2dwc3FtbHZid3VhbHJpeHJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc3ODQsImV4cCI6MjA5NDE3Mzc4NH0.bp9zIabDA5DBUiMmSgVpB2qO4mM5P1TMbBIo1YKVcCI');
 
         async function register() {
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const fullName = document.getElementById('fullName').value;
-            const stageName = document.getElementById('stageName').value;
+            const fullName = document.getElementById('fullName').value.trim();
+            const stageName = document.getElementById('stageName').value.trim();
 
-            if (!email || !password || !fullName || !stageName) return alert("Fill in all fields!");
-            if (password.length < 6) return alert("Password must be 6 characters.");
+            if (!email || !password || !fullName || !stageName) return alert("Please fill in all fields!");
+            if (password.length < 6) return alert("Password must be at least 6 characters.");
 
-            alert("Creating account...");
+            alert("Connecting to Supabase...");
 
+            // 1. Try to create the Auth User
             const { data, error } = await supabase.auth.signUp({ email, password });
-            if (error) return alert("Error: " + error.message);
+            
+            if (error) {
+                return alert("SUPABASE REJECTED EMAIL: " + error.message + "\n\n(You might be trying to use an email that is already registered).");
+            }
 
+            // 2. Check if Email Confirmation is secretly blocking you
+            if (data.user && data.session === null) {
+                alert("WARNING: Supabase 'Email Confirmations' is still ON. The account was made, but you cannot log in until you turn off Email Confirmations in Supabase.");
+            }
+
+            // 3. Try to save the Profile Data
             if (data.user) {
                 const { error: dbError } = await supabase.from('profiles').insert([
                     { id: data.user.id, full_name: fullName, stage_name: stageName, role: 'artist' }
                 ]);
                 
                 if (dbError) {
-                    alert("Account created but profile failed to save: " + dbError.message);
+                    alert("SUPABASE DATABASE BLOCKED THE SAVE: " + dbError.message + "\n\nYou must go to Supabase SQL Editor and run: ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;");
                 } else {
-                    alert("Success! Redirecting to login...");
-                    window.location.href = "index.html"; // Go back to login page
+                    alert("SUCCESS! Account created perfectly. Redirecting to login...");
+                    window.location.href = "index.html"; 
                 }
             }
         }
