@@ -224,7 +224,7 @@
     </script>
 
 
-    <!-- ========================================== -->
+   <!-- ========================================== -->
     <!-- SCRIPT 2: DATABASE LOGIC (SUPABASE)        -->
     <!-- ========================================== -->
     <script>
@@ -232,64 +232,71 @@
         let currentUser = null;
         let currentProfile = null;
 
-        try {
-            // Initialize Supabase safely
-            const SUPABASE_URL = 'https://axwgpsqmlvbwualrixrg.supabase.co'; 
-            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4d2dwc3FtbHZid3VhbHJpeHJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc3ODQsImV4cCI6MjA5NDE3Mzc4NH0.bp9zIabDA5DBUiMmSgVpB2qO4mM5P1TMbBIo1YKVcCI'; 
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Initialize Supabase
+        const SUPABASE_URL = 'https://axwgpsqmlvbwualrixrg.supabase.co'; 
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4d2dwc3FtbHZid3VhbHJpeHJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTc3ODQsImV4cCI6MjA5NDE3Mzc4NH0.bp9zIabDA5DBUiMmSgVpB2qO4mM5P1TMbBIo1YKVcCI'; 
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-            // Run session check on load
-            window.onload = checkSession;
-
-        } catch (e) {
-            console.error("Supabase could not load due to HopWeb restrictions:", e);
-        }
+        window.onload = checkSession;
 
         // --- AUTH LOGIC ---
         async function signup() {
-            try {
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const fullName = document.getElementById('fullName').value;
-                const stageName = document.getElementById('stageName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+            const stageName = document.getElementById('stageName').value;
 
-                if (!email || !password || !fullName || !stageName) {
-                    alert("Please fill in all fields."); return;
-                }
+            if (!email || !password || !fullName || !stageName) {
+                alert("Please fill in all fields."); return;
+            }
 
-                alert("Please wait, creating your account...");
+            if (password.length < 6) {
+                alert("Supabase requires passwords to be at least 6 characters long!"); return;
+            }
 
-                const { data, error } = await supabase.auth.signUp({ email, password });
-                if (error) { alert("Error: " + error.message); return; }
+            alert("Connecting to database to create account...");
 
-                if (data.user) {
-                    await supabase.from('profiles').insert([{ 
-                        id: data.user.id, full_name: fullName, stage_name: stageName, role: 'artist' 
-                    }]);
-                    alert("Signup Successful! Please Login.");
+            // 1. Create the user in Auth
+            const { data, error } = await supabase.auth.signUp({ email, password });
+            
+            if (error) { 
+                alert("Auth Error: " + error.message); 
+                return; 
+            }
+
+            // 2. Save the extra data in Profiles table
+            if (data.user) {
+                const { error: profileError } = await supabase.from('profiles').insert([{ 
+                    id: data.user.id, 
+                    full_name: fullName, 
+                    stage_name: stageName, 
+                    role: 'artist' 
+                }]);
+
+                if (profileError) {
+                    alert("Account created, but Profile failed to save. Database error: " + profileError.message);
+                } else {
+                    alert("Signup Successful! You can now log in.");
+                    document.getElementById('password').value = ""; // clear password
                     toggleAuth(); 
                 }
-            } catch (err) {
-                alert("System Error: " + err.message);
             }
         }
 
         async function login() {
-            try {
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-                if (!email || !password) { alert("Enter email and password."); return; }
+            if (!email || !password) { alert("Enter email and password."); return; }
 
-                alert("Logging in...");
-
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) { alert("Login failed: " + error.message); return; }
-                
-                checkSession();
-            } catch (err) {
-                alert("System Error: " + err.message);
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            
+            if (error) { 
+                alert("Login failed: " + error.message); 
+                return; 
             }
+            
+            checkSession();
         }
 
         async function logout() {
@@ -299,30 +306,32 @@
 
         // --- SESSION LOGIC ---
         async function checkSession() {
-            try {
-                const { data: { user }, error } = await supabase.auth.getUser();
-                if (error) throw error;
-
-                if (user) {
-                    currentUser = user;
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-                    currentProfile = profile;
-
-                    document.getElementById('navMenu').style.display = 'flex';
-                    document.getElementById('welcomeText').innerText = "Welcome, " + profile.stage_name;
-
-                    if (profile.role === 'admin') {
-                        showSection('adminDashboard');
-                        fetchAdminSongs();
-                    } else {
-                        showSection('userDashboard');
-                        fetchUserSongs();
-                    }
-                } else {
-                    showSection('authSection');
+            const { data: { user }, error } = await supabase.auth.getUser();
+            
+            if (user) {
+                currentUser = user;
+                
+                // Fetch profile
+                const { data: profile, error: fetchError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                
+                if (fetchError) {
+                    console.error("Could not load profile:", fetchError);
+                    alert("Logged in, but could not load profile data.");
+                    return;
                 }
-            } catch(e) {
-                // Ignore silent session errors in HopWeb, keep showing login page
+
+                currentProfile = profile;
+                document.getElementById('navMenu').style.display = 'flex';
+                document.getElementById('welcomeText').innerText = "Welcome, " + profile.stage_name;
+
+                if (profile.role === 'admin') {
+                    showSection('adminDashboard');
+                    fetchAdminSongs();
+                } else {
+                    showSection('userDashboard');
+                    fetchUserSongs();
+                }
+            } else {
                 showSection('authSection');
             }
         }
@@ -344,17 +353,14 @@
             document.getElementById('uploadProgress').style.display = 'block';
 
             try {
-                // Upload Art
                 const artPath = `covers/${Date.now()}_${artwork.name}`;
                 await supabase.storage.from('jonom_files').upload(artPath, artwork);
                 const artUrl = supabase.storage.from('jonom_files').getPublicUrl(artPath).data.publicUrl;
 
-                // Upload Audio
                 const audioPath = `audio/${Date.now()}_${audio.name}`;
                 await supabase.storage.from('jonom_files').upload(audioPath, audio);
                 const audioUrl = supabase.storage.from('jonom_files').getPublicUrl(audioPath).data.publicUrl;
 
-                // Save to DB
                 const songData = {
                     user_id: currentUser.id,
                     release_type: document.getElementById('rType').value,
@@ -443,6 +449,7 @@
             await supabase.from('songs').update({ status: newStatus }).eq('id', id);
             fetchAdminSongs(); 
         }
-    </script>
+            </script>
+        
 </body>
 </html>
